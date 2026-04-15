@@ -87,7 +87,7 @@ function globMatch(pattern: string, text: string): boolean {
         .replace(/\*/g, ".*")
         .replace(/\?/g, ".") +
       "$",
-    "i"
+    "i",
   );
   return regex.test(text);
 }
@@ -135,7 +135,7 @@ function isAppAllowed(app: string): boolean {
     return false;
   if (allow.length === 0) return true;
   return allow.some(
-    (r) => lower.includes(r.value!) || r.value!.includes(lower)
+    (r) => lower.includes(r.value!) || r.value!.includes(lower),
   );
 }
 
@@ -272,6 +272,15 @@ function isInsidePipeDir(targetPath: string, pipeDir: string): boolean {
   );
 }
 
+function checkMacOSTccPaths(cmd: string): string | null {
+  const protectedPaths =
+    /(~\/|\/Users\/[^\/]+\/)(Documents|Desktop|Downloads|Library|Pictures|Movies|Music)(\/|\s|$|['"]|\\)/i;
+  if (protectedPaths.test(cmd)) {
+    return "Access to macOS protected folders (Documents, Desktop, Downloads, Library, Pictures, Movies, Music) is blocked to prevent recurring TCC permission popups. Please instruct the user to move required files to a non-protected directory or the pipe's workspace.";
+  }
+  return null;
+}
+
 function checkFilesystemWrite(cmd: string): string | null {
   if (!PERMS?.pipe_dir) return null;
   const pipeDir = PERMS.pipe_dir;
@@ -320,8 +329,7 @@ function checkFilesystemWrite(cmd: string): string | null {
     },
     // sed -i
     {
-      regex:
-        /\bsed\s+(?:.*?)-i['"=]?\s*(?:\S+\s+)?["']?([^\s"'|;&]+)["']?/g,
+      regex: /\bsed\s+(?:.*?)-i['"=]?\s*(?:\S+\s+)?["']?([^\s"'|;&]+)["']?/g,
       extract: (m) => [m[1]],
     },
     // chmod / chown target
@@ -361,7 +369,7 @@ function buildPermissionRules(): string {
   const rules: string[] = [];
   rules.push("## Pipe Permissions");
   rules.push(
-    "You MUST obey these rules. The server enforces them — violating requests return 403.\n"
+    "You MUST obey these rules. The server enforces them — violating requests return 403.\n",
   );
 
   const allowApis = getRules(PERMS.allow_rules, "api");
@@ -381,51 +389,63 @@ function buildPermissionRules(): string {
   const allowApps = getRules(PERMS.allow_rules, "app");
   const denyApps = getRules(PERMS.deny_rules, "app");
   if (allowApps.length > 0)
-    rules.push(`\n**Allowed apps**: ${allowApps.map((r) => r.value).join(", ")}`);
+    rules.push(
+      `\n**Allowed apps**: ${allowApps.map((r) => r.value).join(", ")}`,
+    );
   if (denyApps.length > 0)
     rules.push(`**Denied apps**: ${denyApps.map((r) => r.value).join(", ")}`);
 
   const allowWindows = getRules(PERMS.allow_rules, "window");
   const denyWindows = getRules(PERMS.deny_rules, "window");
   if (allowWindows.length > 0)
-    rules.push(`**Allowed windows**: ${allowWindows.map((r) => r.value).join(", ")}`);
+    rules.push(
+      `**Allowed windows**: ${allowWindows.map((r) => r.value).join(", ")}`,
+    );
   if (denyWindows.length > 0)
-    rules.push(`**Denied windows**: ${denyWindows.map((r) => r.value).join(", ")}`);
+    rules.push(
+      `**Denied windows**: ${denyWindows.map((r) => r.value).join(", ")}`,
+    );
 
   const allowContent = getRules(PERMS.allow_rules, "content");
   const denyContent = getRules(PERMS.deny_rules, "content");
   if (allowContent.length > 0) {
     const allowed = getAllowedContentTypes();
-    rules.push(`**Allowed content types** (never use "all"): ${allowed.join(", ")}`);
+    rules.push(
+      `**Allowed content types** (never use "all"): ${allowed.join(", ")}`,
+    );
   }
   if (denyContent.length > 0)
-    rules.push(`**Denied content types**: ${denyContent.map((r) => r.value).join(", ")}`);
+    rules.push(
+      `**Denied content types**: ${denyContent.map((r) => r.value).join(", ")}`,
+    );
 
   if (PERMS.time_range) {
     const [sh, sm, eh, em] = PERMS.time_range;
     rules.push(
-      `**Time window**: ${sh.toString().padStart(2, "0")}:${sm.toString().padStart(2, "0")} - ${eh.toString().padStart(2, "0")}:${em.toString().padStart(2, "0")}`
+      `**Time window**: ${sh.toString().padStart(2, "0")}:${sm.toString().padStart(2, "0")} - ${eh.toString().padStart(2, "0")}:${em.toString().padStart(2, "0")}`,
     );
   }
   if (PERMS.days) {
     const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    rules.push(`**Allowed days**: ${PERMS.days.map((d) => dayNames[d] || "?").join(", ")}`);
+    rules.push(
+      `**Allowed days**: ${PERMS.days.map((d) => dayNames[d] || "?").join(", ")}`,
+    );
   }
   if (PERMS.pipe_dir) {
     rules.push("\n### Filesystem Sandbox");
     rules.push(
-      `You can ONLY write files inside your pipe directory: \`${PERMS.pipe_dir}\``
+      `You can ONLY write files inside your pipe directory: \`${PERMS.pipe_dir}\``,
     );
     rules.push(
-      "Writing, moving, copying, or deleting files outside this directory is BLOCKED."
+      "Writing, moving, copying, or deleting files outside this directory is BLOCKED.",
     );
     rules.push(
-      "Use relative paths (e.g. `./output.json`) to stay within your directory."
+      "Use relative paths (e.g. `./output.json`) to stay within your directory.",
     );
   }
   if (PERMS.pipe_token) {
     rules.push(
-      `\n**Authentication**: Include this header in ALL curl requests:\n  -H "Authorization: Bearer ${PERMS.pipe_token}"`
+      `\n**Authentication**: Include this header in ALL curl requests:\n  -H "Authorization: Bearer ${PERMS.pipe_token}"`,
     );
   }
   return rules.join("\n");
@@ -446,7 +466,10 @@ export default function (pi: ExtensionAPI) {
     }
     const rules = buildPermissionRules();
     if (rules || extra) {
-      return { systemPrompt: event.systemPrompt + extra + (rules ? "\n\n" + rules : "") + "\n" };
+      return {
+        systemPrompt:
+          event.systemPrompt + extra + (rules ? "\n\n" + rules : "") + "\n",
+      };
     }
   });
 
@@ -465,6 +488,12 @@ export default function (pi: ExtensionAPI) {
       };
     }
 
+    // macOS TCC sandbox: block paths that trigger permission popups
+    const tccViolation = checkMacOSTccPaths(cmd);
+    if (tccViolation) {
+      return { block: true, reason: tccViolation };
+    }
+
     // Filesystem sandbox: block writes outside pipe_dir
     const fsViolation = checkFilesystemWrite(cmd);
     if (fsViolation) {
@@ -474,7 +503,8 @@ export default function (pi: ExtensionAPI) {
     if (hitsScreenpipeApi(cmd) && !isParsableCurl(cmd)) {
       return {
         block: true,
-        reason: "Use curl to access the Screenpipe API. Other HTTP clients are not supported with permissions enabled.",
+        reason:
+          "Use curl to access the Screenpipe API. Other HTTP clients are not supported with permissions enabled.",
       };
     }
     if (isParsableCurl(cmd) && hitsScreenpipeApi(cmd)) {
